@@ -1,0 +1,60 @@
+#sbs特征选择
+from itertools import combinations
+import numpy as np
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
+class SBS():
+    def __init__(self, estimator, k_features, scoring = accuracy_score, test_size = 0.25, random_state =1):
+        self.estimator = clone(estimator)
+        self.scoring = scoring
+        self.k_features = k_features
+        self.test_size = test_size
+        self.random_state = random_state
+
+    def fit(self, X, y):
+        X_train, X_test, y_train, y_test = \
+            train_test_split(X, y, test_size=self.test_size,
+                             random_state=self.random_state)
+        dim = X_train.shape[1]
+        self.indices_ = tuple(range(dim))  # 多少特征量的索引
+        self.subsets_ = [self.indices_]   # 索引转化成list
+        score = self._calc_score(X_train, y_train,
+                                 X_test, y_test, self.indices_)   # 调用_calc_score 方法 返回score，方法中的属性（局部变量）
+        self.scores_ = [score]   #  其实就全部特征的得分
+
+        while dim > self.k_features:                    # 开始从每个特征开始-并记录准确率
+            scores = []
+            subsets = []
+            for p in combinations(self.indices_, r=dim - 1):  # 从全部特征减1 到- 1个特征，调用调用_calc_score 方法并计算score值，并选取最大的值
+                score = self._calc_score(X_train, y_train,
+                                     X_test, y_test, p)
+            scores.append(score)
+            subsets.append(p)
+            best = np.argmax(scores)
+            self.indices_ = subsets[best]
+             self.subsets_.append(self.indices_)
+            dim -= 1
+            self.scores_.append(scores[best])
+            self.k_score_ = self.scores_[-1]
+        self.k_score_ = self.scores_[-1]
+        return  self
+
+    def transform(self, X):
+        return X[:, self.indices_]
+
+    def _calc_score(self, X_train, y_train, X_test, y_test,
+                    indices):
+        self.estimator.fit(X_train[:, indices], y_train)   # 调用了clone(estimator)
+
+        y_pred = self.estimator.predict(X_test[:, indices])
+        score = self.scoring(y_test, y_pred)
+        return score
+
+
+if __name__ == "__main__":
+    import matplotlib.path as plt
+    from sklearn.neighbors import KNeighborsClassifier
+    knn = KNeighborsClassifier(n_neighbors = 5)
+    sbs = SBS(knn, k_features=1)
+    sbs.fit(X_train_std, y_train)
